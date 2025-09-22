@@ -21,7 +21,3 @@ Serve with any web server. For example, python's `http.server`:
 ~~~bash
 python3 -m http.server -d public 8000
 ~~~
-
-## Bugs and issues
-
-Report to []().
