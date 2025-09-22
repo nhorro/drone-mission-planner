@@ -4,6 +4,8 @@ This is a static web application for offline planning of drone missions. It was 
 
 ![Screenshot](./doc/assets/screenshot.png)
 
+Screenshot: trajectory and main POIs of [Isla Huemul](https://es.wikipedia.org/wiki/Isla_Huemul) in San Carlos de Bariloche, Argentina.
+
 ## Roadmap
 
 - [x] Basic application skeleton.
