@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Flight Plan Editor (Vanilla JS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+  <!-- Bootstrap 5 (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Leaflet (CDN) -->
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link href="styles.css" rel="stylesheet"/>
+</head>
+<body class="d-flex flex-column h-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">
+  <a class="navbar-brand me-3" href="#">Flight Plan Editor</a>
+
+  <!-- Mode toolbar -->
+  <div class="btn-group me-2" role="group" aria-label="Edit mode">
+    <button id="modeWp"  class="btn btn-sm btn-outline-light active" title="Add/Edit Waypoints">Waypoints</button>
+    <button id="modePoi" class="btn btn-sm btn-outline-light" title="Add/Edit POIs">POIs</button>
+    <button id="modeZone" class="btn btn-sm btn-outline-light" title="Draw/Manage Zones">Zones</button>
+  </div>
+  <div class="btn-group me-auto" role="group" aria-label="Zone actions">
+    <button id="btnZoneFinish" class="btn btn-sm btn-success d-none" title="Finish current zone">Finish</button>
+    <button id="btnZoneCancel" class="btn btn-sm btn-outline-danger d-none" title="Cancel current zone">Cancel</button>
+  </div>
+
+  <div class="ms-auto d-flex gap-2">
+    <button id="btnNew" class="btn btn-outline-light btn-sm">New</button>
+    <button id="btnOpen" class="btn btn-outline-light btn-sm">Open JSON/WPML</button>
+    <button id="btnSave" class="btn btn-outline-light btn-sm">Save JSON</button>
+    <button id="btnExportWPML" class="btn btn-warning btn-sm">Export WPML</button>
+    <button id="btnSettings" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">Settings</button>
+    <button id="btnAbout" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#aboutModal">About</button>
+  </div>
+  <input id="fileOpen" type="file" accept=".json,.wpml,.xml" class="d-none">
+</nav>
+
+<div class="container-fluid flex-grow-1">
+  <div class="row h-100">
+    <!-- Side Panel -->
+    <div class="col-12 col-lg-3 py-2 sidepanel">
+      <!-- Global Info -->
+      <div class="card mb-2">
+        <div class="card-header">Plan</div>
+        <div class="card-body small">
+          <div class="mb-2">
+            <label class="form-label mb-0">Name</label>
+            <input id="planName" class="form-control form-control-sm" placeholder="My Flight">
+          </div>
+          <div class="mb-2">
+            <label class="form-label mb-0">Notes</label>
+            <textarea id="planNotes" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+          <div class="d-flex flex-wrap gap-3">
+            <div><strong>Placemarks:</strong> <span id="statCount">0</span></div>
+            <div><strong>Length:</strong> <span id="statLength">0 m</span></div>
+            <div><strong>Duration:</strong> <span id="statDuration">00:00</span></div>
+          </div>
+          <hr>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label mb-0">Default speed (m/s)</label>
+              <input id="defaultSpeed" type="number" step="0.1" class="form-control form-control-sm" value="5">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0">Shot latency (s)</label>
+              <input id="shotLatency" type="number" step="0.1" class="form-control form-control-sm" value="0.5">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Placemark List -->
+      <div class="card mb-2">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Placemarks</span>
+          <div>
+            <button id="btnUp" class="btn btn-sm btn-outline-secondary">↑</button>
+            <button id="btnDown" class="btn btn-sm btn-outline-secondary">↓</button>
+          </div>
+        </div>
+        <div class="list-group list-group-flush small" id="placemarkList" style="max-height: 30vh; overflow:auto;"></div>
+      </div>
+
+      <div class="card mb-2">
+        <div class="card-header">Selected Placemark</div>
+        <div class="card-body small">
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label mb-0">Lat</label>
+              <input id="pmLat" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0">Lon</label>
+              <input id="pmLon" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0">Alt (Rel m)</label>
+              <input id="pmAlt" type="number" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label mb-0 d-flex align-items-center justify-content-between">
+                <span>Speed out (m/s)</span>
+                <span class="form-check form-check-inline m-0">
+                  <input id="pmSpeedUse" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small">Override</label>
+                </span>
+              </label>
+              <input id="pmSpeed" type="number" step="0.1" class="form-control form-control-sm" placeholder="default">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label mb-0 d-flex align-items-center justify-content-between">
+                <span>AC Yaw (°N)</span>
+                <span class="form-check form-check-inline m-0">
+                  <input id="pmYawUse" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small">Override</label>
+                </span>
+              </label>
+              <input id="pmYaw" type="number" step="1" class="form-control form-control-sm" placeholder="default">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label mb-0 d-flex align-items-center justify-content-between">
+                <span>Gimbal Pitch (°)</span>
+                <span class="form-check form-check-inline m-0">
+                  <input id="pmGimbalPitchUse" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small">Override</label>
+                </span>
+              </label>
+              <input id="pmGimbalPitch" type="number" step="1" class="form-control form-control-sm" placeholder="default">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label mb-0 d-flex align-items-center justify-content-between">
+                <span>Gimbal Yaw (°N)</span>
+                <span class="form-check form-check-inline m-0">
+                  <input id="pmGimbalYawUse" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small">Override</label>
+                </span>
+              </label>
+              <input id="pmGimbalYaw" type="number" step="1" class="form-control form-control-sm" placeholder="default">
+            </div>
+          </div>
+
+          <div class="mt-2 d-flex gap-2">
+            <button id="btnDuplicate" class="btn btn-sm btn-outline-primary">Duplicate</button>
+            <button id="btnDelete" class="btn btn-sm btn-outline-danger">Delete</button>
+          </div>
+
+          <hr>
+          <div class="d-flex justify-content-between align-items-center">
+            <strong>Actions</strong>
+            <div class="form-check form-switch m-0">
+              <input class="form-check-input" type="checkbox" id="pmActionsUse">
+              <label class="form-check-label small" for="pmActionsUse">Override defaults</label>
+            </div>
+          </div>
+          <div id="actionList" class="mt-2"></div>
+          <div class="mt-2">
+            <button id="btnAddAction" class="btn btn-sm btn-outline-secondary">Add</button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Selected Placemark -->
+      <div class="card mb-2">
+        <div class="card-header">Selected Placemark</div>
+        <div class="card-body small">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label mb-0">Lat</label><input id="pmLat" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Lon</label><input id="pmLon" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Alt (Rel m)</label><input id="pmAlt" type="number" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Speed out (m/s)</label><input id="pmSpeed" type="number" step="0.1" class="form-control form-control-sm" placeholder="blank = plan default"></div>
+            <div class="col-6"><label class="form-label mb-0">AC Yaw (°N)</label><input id="pmYaw" type="number" step="1" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Gimbal Pitch (°)</label><input id="pmGimbalPitch" type="number" step="1" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Gimbal Yaw (°N)</label><input id="pmGimbalYaw" type="number" step="1" class="form-control form-control-sm"></div>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <button id="btnDuplicate" class="btn btn-sm btn-outline-primary">Duplicate</button>
+            <button id="btnDelete" class="btn btn-sm btn-outline-danger">Delete</button>
+          </div>
+          <hr>
+          <div class="d-flex justify-content-between align-items-center">
+            <strong>Actions</strong>
+            <button id="btnAddAction" class="btn btn-sm btn-outline-secondary">Add</button>
+          </div>
+          <div id="actionList" class="mt-2"></div>
+        </div>
+      </div>
+
+      <!-- POIs List -->
+      <div class="card mb-2">
+        <div class="card-header">Points of Interest (POIs)</div>
+        <div class="list-group list-group-flush small" id="poiList" style="max-height: 14vh; overflow:auto;"></div>
+      </div>
+
+      <!-- Selected POI -->
+      <div class="card mb-2">
+        <div class="card-header">Selected POI</div>
+        <div class="card-body small">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label mb-0">Lat</label><input id="poiLat" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Lon</label><input id="poiLon" class="form-control form-control-sm"></div>
+            <div class="col-6"><label class="form-label mb-0">Alt (Rel m)</label><input id="poiAlt" type="number" class="form-control form-control-sm"></div>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <button id="btnPoiDelete" class="btn btn-sm btn-outline-danger">Delete POI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zones List -->
+      <div class="card mb-2">
+        <div class="card-header">Zones (polygons)</div>
+        <div class="list-group list-group-flush small" id="zoneList" style="max-height: 14vh; overflow:auto;"></div>
+      </div>
+
+      <!-- Selected Zone -->
+      <div class="card">
+        <div class="card-header">Selected Zone</div>
+        <div class="card-body small">
+          <div class="mb-2">
+            <label class="form-label mb-0">Name</label>
+            <input id="zoneName" class="form-control form-control-sm" placeholder="Zone 1">
+          </div>
+          <div class="d-flex gap-2">
+            <button id="btnZoneDelete" class="btn btn-sm btn-outline-danger">Delete Zone</button>
+          </div>
+          <div class="form-text mt-2">Tip: In <strong>Zones</strong> mode, click the map to add vertices, then press <em>Finish</em> or <em>Cancel</em>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="col-12 col-lg-9 p-0 position-relative">
+      <div id="map"></div>
+      <div id="mouseLatLon" class="position-absolute bottom-0 start-0 m-2 badge bg-dark"></div>
+      <div id="modeBadge" class="position-absolute bottom-0 start-0 m-2 badge bg-primary" style="transform: translateY(-2.2rem);">
+        Mode: Waypoints
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Settings</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body small">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6>Plan Defaults</h6>
+            <div class="mb-2">
+              <label class="form-label mb-0">MapTiler API key (optional; blank → OSM)</label>
+              <input id="mapTilerKey" class="form-control form-control-sm" placeholder="YOUR_MAPTILER_KEY">
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mb-0">Default speed (m/s)</label>
+                <input id="defaultSpeedModal" type="number" step="0.1" class="form-control form-control-sm">
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-0">Shot latency (s)</label>
+                <input id="shotLatencyModal" type="number" step="0.1" class="form-control form-control-sm">
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label mb-0">Validation constants (advanced)</label>
+              <textarea id="validationJson" class="form-control form-control-sm" rows="6"></textarea>
+              <div class="form-text">Edit with care. JSON must be valid.</div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <h6>Placemark Defaults (applied to NEW waypoints)</h6>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label mb-0">Alt (Rel m)</label><input id="defAlt" type="number" class="form-control form-control-sm"></div>
+              <div class="col-6"><label class="form-label mb-0">Speed out (m/s)</label><input id="defSpeedOut" type="number" step="0.1" class="form-control form-control-sm" placeholder="blank = plan default"></div>
+              <div class="col-6"><label class="form-label mb-0">AC Yaw (°N)</label><input id="defYaw" type="number" step="1" class="form-control form-control-sm"></div>
+              <div class="col-6"><label class="form-label mb-0">Gimbal Pitch (°)</label><input id="defGimbalPitch" type="number" step="1" class="form-control form-control-sm"></div>
+              <div class="col-6"><label class="form-label mb-0">Gimbal Yaw (°N)</label><input id="defGimbalYaw" type="number" step="1" class="form-control form-control-sm"></div>
+            </div>
+            <div class="mt-3 d-flex justify-content-between align-items-center">
+              <strong>Default Actions</strong>
+              <button id="btnDefAddAction" class="btn btn-sm btn-outline-secondary">Add</button>
+            </div>
+            <div id="defActionList" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveSettings" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div class="modal fade" id="aboutModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">About</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body small">
+      <p>Vanilla JS + Bootstrap + Leaflet. Exports DJI Waylines (WPML) XML for Mini 4 Pro.</p>
+      <p>Altitude mode: <strong>Relative to Takeoff</strong>. Yaw and gimbal yaw are absolute to North.</p>
+      <p>POIs & Zones are stored in JSON (not in WPML export).</p>
+    </div>
+  </div></div>
+</div>
+
+<!-- Bootstrap bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- App scripts -->
+<script src="state.js"></script>
+<script src="geo.js"></script>
+<script src="map.js"></script>
+<script src="actions.js"></script>
+<script src="wpml.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

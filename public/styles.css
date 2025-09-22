@@ -1,0 +1,26 @@
+html, body { height: 100%; }
+#map { width: 100%; height: calc(100vh - 56px); background: #eee; }
+.sidepanel { max-height: calc(100vh - 56px); overflow: auto; }
+#mouseLatLon { pointer-events: none; }
+#modeBadge { pointer-events: none; }
+.list-group-item.active { background-color: #0d6efd; border-color: #0d6efd; }
+.action-row { display:flex; gap:.5rem; align-items:center; margin-bottom:.25rem; }
+.action-row select, .action-row input { max-width: 120px; }
+
+/* POI custom icon */
+.poi-marker {
+  width: 16px; height: 16px;
+  background: #dc3545; /* Bootstrap danger red */
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #333;
+}
+
+/* Zone draft vertices (small dots) */
+.zone-vertex {
+  width: 10px; height: 10px;
+  background: #ffc107; /* warning */
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #333;
+}
