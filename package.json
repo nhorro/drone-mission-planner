@@ -1,0 +1,20 @@
+{
+  "name": "drone-mission-planner",
+  "version": "1.0.0",
+  "description": "This is a static web application for offline planning of drone missions. It was written to overcome the limitation in DJI Mini 4 Pro in which missions have to be planned in the DJI Go Fly App with the drone connected, which makes it impractical.",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "jest": "^30.1.3",
+    "jest-environment-jsdom": "^30.1.2"
+  }
+}
