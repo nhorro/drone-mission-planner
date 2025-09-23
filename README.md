@@ -22,6 +22,6 @@ Serve with any web server. For example, python's `http.server`:
 python3 -m http.server -d public 8000
 ~~~
 
-## Bugs and issues
+## Exporting to DJI Mini 4 Pro WPML
 
-Report to []().
+This is currently WIP. See [reverse engineering of generated WPML](./doc/WPMLReverseEngineering.md).
