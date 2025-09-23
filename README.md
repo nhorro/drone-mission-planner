@@ -16,10 +16,22 @@ Screenshot: trajectory and main POIs of [Isla Huemul](https://es.wikipedia.org/w
 
 ## Instructions
 
+Install dependencies with npm:
+
+~~~bash
+npm install
+~~~
+
 Serve with any web server. For example, python's `http.server`:
 
 ~~~bash
 python3 -m http.server -d public 8000
+~~~
+
+Run the automated test suite with Jest:
+
+~~~bash
+npm test -- --runInBand
 ~~~
 
 ## Exporting to DJI Mini 4 Pro WPML
