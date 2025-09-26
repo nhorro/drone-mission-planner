@@ -54,6 +54,27 @@ function initSplashScreen() {
   const dismiss = document.getElementById('splashDismiss');
   if (!splash || !dismiss) return;
 
+  const media = splash.querySelector('.splash-media');
+  const mediaImg = media?.querySelector('img');
+
+  if (media && mediaImg) {
+    const activateMedia = () => {
+      if (mediaImg.naturalWidth > 0) {
+        media.classList.add('has-image');
+      }
+    };
+
+    if (mediaImg.complete) {
+      activateMedia();
+    } else {
+      mediaImg.addEventListener('load', activateMedia, { once: true });
+    }
+
+    mediaImg.addEventListener('error', () => {
+      media.classList.remove('has-image');
+    });
+  }
+
   const hide = () => {
     splash.classList.add('hidden');
   };
