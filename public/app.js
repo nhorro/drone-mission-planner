@@ -49,6 +49,42 @@ function createBus() {
  * Bootstraps the legacy global services (MapView, State, ModeController) and
  * then hands control to the pager so feature panels can be loaded on demand.
  */
+function initSplashScreen() {
+  const splash = document.getElementById('splashScreen');
+  const dismiss = document.getElementById('splashDismiss');
+  if (!splash || !dismiss) return;
+
+  const media = splash.querySelector('.splash-media');
+  const mediaImg = media?.querySelector('img');
+
+  if (media && mediaImg) {
+    const activateMedia = () => {
+      if (mediaImg.naturalWidth > 0) {
+        media.classList.add('has-image');
+      }
+    };
+
+    if (mediaImg.complete) {
+      activateMedia();
+    } else {
+      mediaImg.addEventListener('load', activateMedia, { once: true });
+    }
+
+    mediaImg.addEventListener('error', () => {
+      media.classList.remove('has-image');
+    });
+  }
+
+  const hide = () => {
+    splash.classList.add('hidden');
+  };
+
+  dismiss.addEventListener('click', hide);
+  splash.addEventListener('click', (event) => {
+    if (event.target === splash) hide();
+  });
+}
+
 function init() {
   ModeController.init();
   MapView.init();
@@ -62,4 +98,5 @@ function init() {
   });
 }
 
+initSplashScreen();
 init();
