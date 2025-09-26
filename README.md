@@ -2,6 +2,8 @@
 
 This is a static web application for offline planning of drone missions. It was written to overcome the limitation in DJI Mini 4 Pro in which missions have to be planned in the DJI Go Fly App with the drone connected, which makes it impractical. 
 
+Try it [online](https://nhorro.github.io/drone-mission-planner).
+
 ![Screenshot](./doc/assets/screenshot.png)
 
 Screenshot: trajectory and main POIs of [Isla Huemul](https://es.wikipedia.org/wiki/Isla_Huemul) in San Carlos de Bariloche, Argentina.
@@ -37,3 +39,7 @@ npm test -- --runInBand
 ## Exporting to DJI Mini 4 Pro WPML
 
 This is currently WIP. See [reverse engineering of generated WPML](./doc/WPMLReverseEngineering.md).
+
+## Documentation
+
+There is a [Developer's Guide](./doc/DeveloperGuide.md).
