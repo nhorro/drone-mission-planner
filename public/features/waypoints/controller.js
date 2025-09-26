@@ -521,7 +521,7 @@ export class WaypointsController {
       }
     }
 
-    MapView.focusPlacemark(sel.index);
+    //MapView.focusPlacemark(sel.index);
   }
 
   /** Re-render the POI list and detail inspector. */
