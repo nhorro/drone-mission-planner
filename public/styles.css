@@ -24,3 +24,51 @@ html, body { height: 100%; }
   border-radius: 50%;
   box-shadow: 0 0 0 1px #333;
 }
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 2000;
+  transition: opacity 250ms ease;
+}
+
+.splash-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-content {
+  max-width: 32rem;
+  width: 100%;
+  padding: 2.5rem 2rem;
+  border-radius: 1.5rem;
+  background: rgba(33, 37, 41, 0.85);
+  box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, 0.45);
+}
+
+.splash-image-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 1rem;
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 576px) {
+  .splash-content {
+    padding: 2rem 1.5rem;
+  }
+}
