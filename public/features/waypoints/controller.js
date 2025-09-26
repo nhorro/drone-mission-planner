@@ -1,3 +1,10 @@
+/* global UI, WPML, Actions, MapView */
+
+/**
+ * Handles all sidebar interactions for editing waypoints, POIs, and zones.
+ * The controller listens to DOM events, mutates the shared state façade, and
+ * re-renders the form controls whenever the plan changes.
+ */
 export class WaypointsController {
   constructor(store, bus) {
     this.store = store;
@@ -9,12 +16,19 @@ export class WaypointsController {
     this.defActionsWorking = [];
   }
 
+  /**
+   * Register a DOM listener and remember the teardown callback for cleanup.
+   */
   on(element, event, handler) {
     if (!element) return;
     element.addEventListener(event, handler);
     this.cleanup.push(() => element.removeEventListener(event, handler));
   }
 
+  /**
+   * Cache references to DOM elements within the rendered panel. Using helpers
+   * keeps the rest of the controller concise.
+   */
   cacheElements() {
     const get = (id) => document.getElementById(id);
     const within = (id) => this.root ? this.root.querySelector(`#${id}`) : null;
@@ -74,6 +88,9 @@ export class WaypointsController {
     };
   }
 
+  /**
+   * Attach event listeners for plan/placemark/POI/zone editing controls.
+   */
   bindEvents() {
     const { els } = this;
     this.on(els.btnNew, 'click', () => this.store.newPlan());
@@ -120,6 +137,9 @@ export class WaypointsController {
     this.on(els.btnZoneDelete, 'click', () => this.handleZoneDelete());
   }
 
+  /**
+   * Import a plan from either JSON or WPML when the hidden file input changes.
+   */
   async handleFileOpen(event) {
     const input = event.target;
     const file = input?.files?.[0];
@@ -137,18 +157,21 @@ export class WaypointsController {
     }
   }
 
+  /** Update the plan name when the text field changes. */
   handlePlanNameChange() {
     const plan = this.store.getPlan();
     plan.name = this.els.planName?.value ?? '';
     this.store.setPlan(plan);
   }
 
+  /** Update the plan notes when the textarea changes. */
   handlePlanNotesChange() {
     const plan = this.store.getPlan();
     plan.notes = this.els.planNotes?.value ?? '';
     this.store.setPlan(plan);
   }
 
+  /** Persist default waypoint speed changes back into the store. */
   handleDefaultSpeedChange() {
     const plan = this.store.getPlan();
     const value = Number(this.els.defaultSpeed?.value || plan.defaults.speed_mps);
@@ -156,6 +179,7 @@ export class WaypointsController {
     this.store.setPlan(plan);
   }
 
+  /** Persist default shot latency changes back into the store. */
   handleShotLatencyChange() {
     const plan = this.store.getPlan();
     const value = Number(this.els.shotLatency?.value || plan.defaults.shot_latency_s);
@@ -163,12 +187,18 @@ export class WaypointsController {
     this.store.setPlan(plan);
   }
 
+  /**
+   * Add a default action template to the settings modal editor.
+   */
   handleAddDefaultAction() {
     this.defActionsWorking = this.defActionsWorking || [];
     this.defActionsWorking.push(Actions.defaultAction('TakePhoto'));
     this.renderDefaultActionsEditor();
   }
 
+  /**
+   * Persist global plan defaults and modal preferences back into the store.
+   */
   handleSaveSettings() {
     const { els } = this;
     localStorage.setItem('fpe_maptiler_key', (els.mapTilerKey?.value || '').trim());
@@ -193,6 +223,7 @@ export class WaypointsController {
     this.store.setPlan(plan);
   }
 
+  /** Duplicate the currently selected placemark. */
   handleDuplicatePlacemark() {
     const sel = this.store.getSelection();
     if (sel.kind === 'pm' && sel.index >= 0) {
@@ -200,6 +231,7 @@ export class WaypointsController {
     }
   }
 
+  /** Remove the currently selected placemark. */
   handleDeletePlacemark() {
     const sel = this.store.getSelection();
     if (sel.kind === 'pm' && sel.index >= 0) {
@@ -207,6 +239,10 @@ export class WaypointsController {
     }
   }
 
+  /**
+   * Move the active placemark up or down in the list.
+   * @param {number} delta positive/negative offset within the array
+   */
   moveSelectedPlacemark(delta) {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm') return;
@@ -219,6 +255,7 @@ export class WaypointsController {
     this.store.setPmSelection(dst);
   }
 
+  /** Add a template action to the currently selected placemark. */
   handlePlacemarkAddAction() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -229,6 +266,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { actions: pm.actions });
   }
 
+  /** Toggle whether the placemark overrides the plan's default speed. */
   handleSpeedToggle() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -244,6 +282,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { speed_out_mps: pm.speed_out_mps });
   }
 
+  /** Toggle whether the placemark overrides the aircraft yaw. */
   handleYawToggle() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -254,6 +293,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { aircraft });
   }
 
+  /** Toggle whether the placemark overrides the gimbal pitch. */
   handleGimbalPitchToggle() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -264,6 +304,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { gimbal });
   }
 
+  /** Toggle whether the placemark overrides the gimbal yaw. */
   handleGimbalYawToggle() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -274,6 +315,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { gimbal });
   }
 
+  /** Toggle whether the placemark uses custom actions or plan defaults. */
   handleActionsToggle() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -281,6 +323,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, { actions });
   }
 
+  /** Persist field edits for the currently selected placemark. */
   handlePlacemarkFieldChange() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'pm' || sel.index < 0) return;
@@ -298,6 +341,7 @@ export class WaypointsController {
     this.store.updatePlacemark(sel.index, patch);
   }
 
+  /** Persist edits to the active POI. */
   handlePoiChange() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'poi' || sel.index < 0) return;
@@ -308,6 +352,7 @@ export class WaypointsController {
     });
   }
 
+  /** Delete the selected POI. */
   handlePoiDelete() {
     const sel = this.store.getSelection();
     if (sel.kind === 'poi' && sel.index >= 0) {
@@ -315,12 +360,14 @@ export class WaypointsController {
     }
   }
 
+  /** Persist the zone name when edited in the form. */
   handleZoneNameChange() {
     const sel = this.store.getSelection();
     if (sel.kind !== 'zone' || sel.index < 0) return;
     this.store.updateZone(sel.index, { name: this.els.zoneName?.value });
   }
 
+  /** Delete the selected zone. */
   handleZoneDelete() {
     const sel = this.store.getSelection();
     if (sel.kind === 'zone' && sel.index >= 0) {
@@ -328,6 +375,9 @@ export class WaypointsController {
     }
   }
 
+  /**
+   * Render all subsections of the panel when the plan or selection changes.
+   */
   render(plan) {
     if (!this.root) return;
     const totals = this.store.computeTotals();
@@ -337,6 +387,7 @@ export class WaypointsController {
     this.renderZones(plan);
   }
 
+  /** Render plan-level metadata and defaults. */
   renderPlan(plan, totals) {
     const { els } = this;
     if (!els.planName) return;
@@ -364,6 +415,7 @@ export class WaypointsController {
     this.renderDefaultActionsEditor();
   }
 
+  /** Render the reusable actions editor used both in plan defaults and PMs. */
   renderDefaultActionsEditor() {
     const { els } = this;
     if (!els.defActionList) return;
@@ -373,11 +425,13 @@ export class WaypointsController {
     });
   }
 
+  /** Re-render the placemark list and detail inspector. */
   renderPlacemarks(plan) {
     this.renderPlacemarkList(plan);
     this.renderSelectedPlacemark(plan);
   }
 
+  /** Render the clickable list of placemarks in the plan. */
   renderPlacemarkList(plan) {
     const { els } = this;
     if (!els.placemarkList) return;
@@ -394,6 +448,7 @@ export class WaypointsController {
     });
   }
 
+  /** Populate the placemark editor for the current selection. */
   renderSelectedPlacemark(plan) {
     const { els } = this;
     if (!els.pmLat) return;
@@ -469,11 +524,13 @@ export class WaypointsController {
     MapView.focusPlacemark(sel.index);
   }
 
+  /** Re-render the POI list and detail inspector. */
   renderPOIs(plan) {
     this.renderPoiList(plan);
     this.renderSelectedPoi(plan);
   }
 
+  /** Render the list of POIs in the plan. */
   renderPoiList(plan) {
     const { els } = this;
     if (!els.poiList) return;
@@ -490,6 +547,7 @@ export class WaypointsController {
     });
   }
 
+  /** Populate the POI editor for the active selection. */
   renderSelectedPoi(plan) {
     const { els } = this;
     if (!els.poiLat) return;
@@ -505,11 +563,13 @@ export class WaypointsController {
     MapView.focusPOI(sel.index);
   }
 
+  /** Re-render the zones list and detail view. */
   renderZones(plan) {
     this.renderZoneList(plan);
     this.renderSelectedZone(plan);
   }
 
+  /** Render the list of exclusion zones for the plan. */
   renderZoneList(plan) {
     const { els } = this;
     if (!els.zoneList) return;
@@ -526,6 +586,7 @@ export class WaypointsController {
     });
   }
 
+  /** Populate the zone editor for the current selection. */
   renderSelectedZone(plan) {
     const { els } = this;
     if (!els.zoneName) return;
@@ -539,6 +600,10 @@ export class WaypointsController {
     MapView.focusZone(sel.index);
   }
 
+  /**
+   * Called by the pager when the panel is shown. Sets up listeners and initial
+   * render then subscribes to store updates.
+   */
   async mount(rootSelector) {
     this.root = document.querySelector(rootSelector);
     if (!this.root) return;
@@ -548,6 +613,10 @@ export class WaypointsController {
     this.unsubscribe = this.store.onChange((plan) => this.render(plan));
   }
 
+  /**
+   * Undo DOM bindings and store subscriptions when another feature becomes
+   * active.
+   */
   async unmount() {
     this.unsubscribe?.();
     this.unsubscribe = null;
@@ -557,6 +626,10 @@ export class WaypointsController {
     this.root = null;
   }
 
+  /**
+   * Called by the pager when the feature is permanently removed. Mirrors
+   * `unmount` in case the controller held additional resources in the future.
+   */
   dispose() {
     this.unsubscribe?.();
     this.unsubscribe = null;
