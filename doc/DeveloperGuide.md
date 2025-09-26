@@ -9,11 +9,15 @@ The app is a vanilla JavaScript single-page experience delivered from the `publi
 ### Runtime flow
 
 1. **App entry (`public/app.js`)** – Creates a lightweight event bus, initializes the mode controller and map, and instantiates the pager shell once the shared `State` singleton is ready.【F:public/app.js†L1-L41】
-2. **State management (`public/state.js`)** – Exposes the global `State` API backed by `Model`. It manages undo/redo stacks, validation constants, persistence to `localStorage`, and publishes plan updates to subscribers (including the map renderer and feature panels).【F:public/state.js†L1-L114】
+2. **State management (`public/state.js`)** – Exposes the global `State` API backed by `Model`. It manages undo/redo stacks, validation constants, persistence to `localStorage`, and publishes plan updates to subscribers (including the map renderer and feature panels).【F:public/state.js†L1-L178】
 3. **Model & geometry (`public/model.js`, `public/geo.js`)** – Handle plan data structures and calculations (flight totals, geometry helpers). These are consumed by `State`, `MapView`, and feature controllers.
-4. **Map layer (`public/map.js`)** – Owns the Leaflet map instance, renders placemarks/POIs/zones from `State`, and responds to user interactions routed through the active mode.
-5. **Mode controller (`public/ui/mode-controller.js`)** – Switches between waypoint, POI, and zone editing modes, coordinating UI state with `MapView` and `State`.
+4. **Map layer (`public/map.js`)** – Owns the Leaflet map instance, renders placemarks/POIs/zones from `State`, and responds to user interactions routed through the active mode.【F:public/map.js†L1-L112】
+5. **Mode controller (`public/ui/mode-controller.js`)** – Switches between waypoint, POI, and zone editing modes, coordinating UI state with `MapView` and `State`.【F:public/ui/mode-controller.js†L1-L76】
 6. **Pager shell (`public/ui/pager.js`)** – Renders the tabbed side panel. Each tab corresponds to a lazy-loaded feature module under `public/features/` that provides its own HTML panel and controller lifecycle hooks.【F:public/ui/pager.js†L1-L118】
+
+### `State` vs `Model`
+
+`State` is the mutable façade exposed to the rest of the UI. It orchestrates undo/redo, persists autosaves, tracks the active selection, and broadcasts plan changes via `onChange` subscribers.【F:public/state.js†L1-L178】 `Model` (see `public/model.js`) holds the normalized mission data and pure operations that mutate it (adding, updating, deleting placemarks/POIs/zones). `State` delegates to these helpers and then emits notifications so the map, feature panels, and totals stay in sync. Adjust `Model` when you need to change how data is stored or validated; adjust `State` when you need to alter lifecycle behavior (undo, selection, persistence, notification timing).
 
 ## Feature modules
 
@@ -43,9 +47,54 @@ Because this controller centralizes most interactions with plan data, bug fixes 
 
 ## Working with shared services
 
-- **Event bus** – Created in `app.js`, the bus provides `on`, `off`, and `emit` methods for decoupled communication between features. Use it for cross-panel events (e.g., telling the map to draw a preview for a tool that lives in a different tab).【F:public/app.js†L1-L41】
-- **Map interactions** – All map drawing and mouse handling should go through `MapView` (`public/map.js`). Add dedicated methods there instead of manipulating Leaflet directly from features.
-- **Globals from classic scripts** – Because many legacy modules attach themselves to `window`, import order in `index.html` matters. When refactoring, ensure new dependencies are either converted to ES modules or loaded before the code that consumes them.
+- **Event bus** – Created in `app.js`, the bus provides `on`, `off`, and `emit` methods for decoupled communication between features.【F:public/app.js†L1-L41】 Register listeners early (for example inside a feature controller's `init`) and keep the disposer returned by `on` so you can unsubscribe when a tab deactivates.
+- **Map interactions** – All map drawing and mouse handling should go through `MapView` (`public/map.js`). Add dedicated adapter methods there instead of manipulating Leaflet directly from features.【F:public/map.js†L1-L112】
+- **Globals from classic scripts** – Because many legacy modules attach themselves to `window`, import order in `index.html` matters. When refactoring, ensure new dependencies are either converted to ES modules or loaded before the code that consumes them.【F:public/index.html†L1-L114】
+
+### Publishing & subscribing on the bus
+
+The bus supports simple topic strings. Calling `bus.on(topic, handler)` registers a subscriber and returns an `unsubscribe` function. `bus.emit(topic, payload)` synchronously invokes each handler. Example:
+
+```js
+// In feature A
+const stop = bus.on('ortho:generate', (payload) => {
+  console.log('Create tiles with', payload);
+});
+
+// Later, to clean up when the feature deactivates
+stop();
+
+// In feature B
+bus.emit('ortho:generate', { altitude: 120, overlap: 70 });
+```
+
+The orthomosaic stub demonstrates publishing an event when the user clicks its Generate button.【F:public/features/ortho/controller.js†L1-L41】 Consumers in other tabs can listen for `ortho:generate` and react without creating circular dependencies.
+
+### Example interaction flows
+
+1. **Adding geometry from the map**
+   1. Leaflet raises a `click` event; `MapView` forwards the location to `window.onMapAddAt` (if defined).【F:public/map.js†L17-L38】
+   2. `ModeController` assigns `window.onMapAddAt` to `handleMapAddAt`, which branches on the active mode to call `State.addPlacemark`, `State.addPOI`, or append to the in-progress zone draft before updating the map.【F:public/ui/mode-controller.js†L21-L64】
+   3. `State` mutates the `Model`, pushes to the undo stack, and runs `notify()`, which iterates `onChange` subscribers and asks `MapView` to render the fresh plan.【F:public/state.js†L20-L116】
+   4. The waypoints controller listens via `store.onChange` to re-render list views, stats, and selection markers so the UI reflects the new point.【F:public/features/waypoints/controller.js†L520-L559】
+
+2. **Responding to bus events**
+   1. A feature registers interest in a topic during `init` and stores the disposer: `this.stopListening = bus.on('ortho:generate', payload => { ... })`.
+   2. Another feature (or background service) emits with `bus.emit('ortho:generate', payload)`. The bus iterates current listeners synchronously, guarding against handler errors so one subscriber cannot break others.【F:public/app.js†L1-L27】
+   3. When a feature deactivates, call the stored disposer or `bus.off(topic, handler)` so dormant tabs do not react to future events.
+
+3. **Updating panels after a state change**
+   1. A UI control inside `public/features/waypoints/controller.js` calls a `State` mutator such as `updatePlacemark(index, patch)` or `handlePoiChange()` (which forwards changes to the store).【F:public/features/waypoints/controller.js†L60-L125】【F:public/features/waypoints/controller.js†L170-L213】
+   2. `State` updates the underlying `Model`, pushes an undo snapshot, and triggers `notify()` to broadcast the new plan.【F:public/state.js†L52-L116】
+   3. The controller's `render()` runs, refreshing lists, stats, and focus helpers (e.g., `MapView.focusPlacemark`) to keep the UI synchronized.【F:public/features/waypoints/controller.js†L520-L559】
+
+### Swapping Leaflet for another map provider
+
+All map interactions are funneled through the global `MapView` adapter. Feature controllers never reach into Leaflet directly; they call `MapView.init()`, `MapView.renderPlan(plan)`, `MapView.setZoneDraft(vertices)`, and focus helpers exposed on `window` by `public/map.js`.【F:public/app.js†L29-L41】【F:public/map.js†L1-L112】 To migrate to Mapbox GL (or another provider):
+
+1. Reimplement the internals of `public/map.js` using the new SDK while preserving the exported `MapView` API (initialization, plan rendering, focus methods, zone draft overlay, and event wiring to `window.onMap...` callbacks).
+2. Update tile-layer setup to use the provider's base maps, but keep emitting `mousemove`, `click`, and drag events that invoke the existing global callbacks so `ModeController` continues to work unchanged.【F:public/ui/mode-controller.js†L21-L64】
+3. Ensure markers, polylines, and polygons keep the same semantic responsibilities (`placemarks`, `pois`, `zones`). As long as the adapter returns the same data to `MapView.renderPlan`, the rest of the application (state store, feature controllers, pager) remains unaffected.
 
 ## Testing & local development
 
